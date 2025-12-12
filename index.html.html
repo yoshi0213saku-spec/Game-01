@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GRAND ROULETTE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&family=Noto+Sans+JP:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #e2e8f0;
+        }
+        
+        /* Gold Text Effect */
+        .gold-text {
+            font-family: 'Montserrat', sans-serif;
+            background: linear-gradient(to bottom, #FDE68A, #D97706, #FDE68A);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0px 2px 10px rgba(217, 119, 6, 0.5);
+            letter-spacing: 0.05em;
+        }
+
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #D97706; /* Amber 600 */
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 2px;
+        }
+
+        /* Spin Button Pulse */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+        }
+        .spin-btn-pulse {
+            animation: pulse-ring 2s infinite;
+        }
+
+        /* Scrollbar for settings */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b; 
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col md:flex-row overflow-y-auto md:overflow-hidden">
+
+    <!-- Left Side: Roulette Area -->
+    <div class="flex-1 flex flex-col items-center justify-center relative p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 min-h-[50vh] md:min-h-screen z-10 shrink-0">
+        
+        <!-- Title -->
+        <h1 class="absolute top-8 text-4xl md:text-5xl font-black gold-text text-center w-full z-20">
+            GRAND ROULETTE
+        </h1>
+
+        <!-- Roulette Container -->
+        <div class="relative mt-12 md:mt-0">
+            <!-- Indicator (Top Triangle) -->
+            <div class="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-[15px] z-20">
+                <div class="w-0 h-0 border-l-[20px] border-l-transparent border-r-[20px] border-r-transparent border-t-[35px] border-t-red-600 drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)]"></div>
+            </div>
+
+            <!-- Outer Gold Ring (CSS Border) -->
+            <div class="rounded-full p-[6px] bg-gradient-to-b from-yellow-300 via-yellow-600 to-yellow-300 shadow-[0_0_40px_rgba(0,0,0,0.6)]">
+                 <!-- Canvas -->
+                <canvas id="wheelCanvas" width="500" height="500" class="rounded-full bg-slate-900 max-w-[300px] md:max-w-[450px] w-full h-auto"></canvas>
+            </div>
+
+            <!-- Center SPIN Button -->
+            <button id="spinBtn" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-20 h-20 md:w-24 md:h-24 rounded-full bg-gradient-to-b from-red-600 to-red-800 border-4 border-yellow-600 shadow-[0_4px_10px_rgba(0,0,0,0.6)] z-30 flex items-center justify-center group active:scale-95 transition-transform">
+                <div class="absolute inset-0 rounded-full spin-btn-pulse opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                <span class="font-black text-white text-lg md:text-xl tracking-wider drop-shadow-md relative z-10">SPIN</span>
+            </button>
+        </div>
+
+        <!-- Result Display -->
+        <div id="resultDisplay" class="absolute bottom-10 text-3xl font-bold text-white opacity-0 transition-opacity duration-500 drop-shadow-lg text-center">
+            <span class="text-yellow-400 text-sm block mb-1">WINNER</span>
+            <span id="winnerText">---</span>
+        </div>
+    </div>
+
+    <!-- Right Side: Settings Panel -->
+    <div class="w-full md:w-[400px] bg-slate-900 border-t md:border-t-0 md:border-l border-slate-700 flex flex-col h-[60vh] md:h-screen shadow-2xl z-20 shrink-0">
+        <div class="p-6 border-b border-slate-700 bg-slate-800">
+            <h2 class="text-xl font-bold text-slate-200 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                設定・音量
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">スライダーで当選確率、🎵で音を設定できます</p>
+        </div>
+
+        <!-- Items List -->
+        <div class="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-3" id="itemsContainer">
+            <!-- Dynamic Items will be injected here -->
+        </div>
+
+        <!-- Footer Controls -->
+        <div class="p-4 bg-slate-800 border-t border-slate-700 space-y-3 pb-8 md:pb-4">
+            <div class="flex gap-2">
+                <button id="addItemBtn" class="w-full py-2 border border-slate-600 border-dashed rounded text-slate-400 hover:text-white hover:border-slate-400 hover:bg-slate-700 transition text-sm flex items-center justify-center">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                    項目を追加
+                </button>
+            </div>
+            
+            <div class="flex gap-2">
+                 <button id="resetPresetBtn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold rounded shadow transition">
+                    リセット
+                </button>
+                <button id="applyBtn" class="flex-1 py-3 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-slate-900 font-bold rounded shadow-lg transition active:translate-y-0.5">
+                    ルーレットに反映
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Celebration Overlay (Canvas) -->
+    <canvas id="confettiCanvas" class="fixed inset-0 pointer-events-none z-50"></canvas>
+
+    <script>
+        // --- Configuration ---
+        const colors = [
+            '#3b82f6', // blue-500
+            '#ef4444', // red-500
+            '#10b981', // emerald-500
+            '#f59e0b', // amber-500
+            '#8b5cf6', // violet-500
+            '#ec4899', // pink-500
+            '#6366f1', // indigo-500
+            '#14b8a6', // teal-500
+        ];
+
+        // Initial Data Generation Logic
+        function generateInitialItems() {
+            const baseItems = [
+                { name: 'アタリ', weight: 1, color: '#ef4444', sound: 'win' }, 
+                { name: 'ハズレ', weight: 5, color: '#334155', sound: 'lose' }, 
+                { name: 'もう一回', weight: 2, color: '#10b981', sound: 'retry' }, 
+                { name: 'お菓子', weight: 2, color: '#3b82f6', sound: 'snack' }
+            ];
+
+            let newItems = [];
+            // Use a unique base + index to ensure IDs don't collide even if loop runs fast
+            const idBase = Date.now();
+
+            // Create 2 of each (Total 8 items)
+            for (let i = 0; i < 2; i++) {
+                baseItems.forEach((item, index) => {
+                    newItems.push({
+                        id: idBase + (i * 100) + index,
+                        name: item.name,
+                        weight: item.weight,
+                        color: item.color,
+                        sound: item.sound
+                    });
+                });
+            }
+
+            // Shuffle (Fisher-Yates)
+            for (let i = newItems.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newItems[i], newItems[j]] = [newItems[j], newItems[i]];
+            }
+
+            return newItems;
+        }
+
+        // Initialize items
+        let items = generateInitialItems();
+
+        // State
+        let currentAngle = 0;
+        let isSpinning = false;
+        let spinVelocity = 0;
+        let animationFrameId = null;
+        let lastPassedIndex = -1; // To track tick sound
+
+        // Elements
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+        const spinBtn = document.getElementById('spinBtn');
+        const itemsContainer = document.getElementById('itemsContainer');
+        const addItemBtn = document.getElementById('addItemBtn');
+        // Removed shuffleBtn
+        const applyBtn = document.getElementById('applyBtn');
+        const resetPresetBtn = document.getElementById('resetPresetBtn');
+        const resultDisplay = document.getElementById('resultDisplay');
+        const winnerText = document.getElementById('winnerText');
+
+        // --- Sound Logic (Web Audio API) ---
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        const SoundParams = {
+            win: { 
+                type: 'triangle', 
+                // Extended and more grandiose fanfare
+                melody: [523.25, 659.25, 783.99, 1046.50, 783.99, 1046.50, 1318.51, 1567.98, 1046.50, 2093.00], 
+                duration: 0.15, 
+                vol: 0.4 // Increased volume
+            }, 
+            lose: { type: 'sawtooth', melody: [392.00, 369.99, 349.23, 311.13], duration: 0.3, vol: 0.15 }, 
+            retry: { type: 'sine', melody: [523.25, 783.99, 1046.50], duration: 0.15, vol: 0.2 }, 
+            snack: { type: 'square', melody: [783.99, 0, 783.99], duration: 0.08, vol: 0.1 }, 
+            none: { type: 'sine', melody: [], duration: 0, vol: 0 }
+        };
+
+        function playTone(freq, type, duration, startTime, volume = 0.1) {
+            if (!audioCtx || freq <= 0) return;
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            osc.type = type;
+            osc.frequency.value = freq;
+
+            // Attack and Decay envelope
+            gainNode.gain.setValueAtTime(0, startTime);
+            gainNode.gain.linearRampToValueAtTime(volume, startTime + 0.02);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            osc.start(startTime);
+            osc.stop(startTime + duration + 0.1);
+        }
+
+        function playTick() {
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            // Mechanical tick sound
+            osc.frequency.setValueAtTime(800, now);
+            osc.frequency.exponentialRampToValueAtTime(100, now + 0.03);
+            gain.gain.setValueAtTime(0.05, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.03);
+        }
+
+        function playResultSound(soundType) {
+            if (!audioCtx || !soundType || soundType === 'none') return;
+            const now = audioCtx.currentTime;
+            
+            // Fallback if sound type is missing from params
+            const params = SoundParams[soundType] || SoundParams['win'];
+            let timeOffset = 0;
+
+            if (params.melody) {
+                params.melody.forEach((freq) => {
+                    if (freq > 0) {
+                        playTone(freq, params.type, params.duration, now + timeOffset, params.vol);
+                    }
+                    timeOffset += params.duration * 0.9; // Legato
+                });
+            }
+        }
+
+
+        // --- Wheel Drawing Logic ---
+
+        function drawWheel() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = canvas.width / 2 - 5;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const totalWeight = items.reduce((sum, item) => sum + item.weight, 0);
+            let startAngle = currentAngle;
+
+            items.forEach((item) => {
+                const sliceAngle = (item.weight / totalWeight) * 2 * Math.PI;
+                const endAngle = startAngle + sliceAngle;
+
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+                ctx.fillStyle = item.color;
+                ctx.fill();
+                
+                ctx.strokeStyle = "rgba(253, 230, 138, 0.3)"; 
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(startAngle + sliceAngle / 2);
+                ctx.textAlign = "right";
+                ctx.fillStyle = "#ffffff";
+                ctx.font = "bold 24px 'Noto Sans JP', sans-serif";
+                
+                let text = item.name;
+                if (text.length > 8) text = text.substring(0, 7) + "..";
+                
+                ctx.shadowColor = "rgba(0,0,0,0.5)";
+                ctx.shadowBlur = 4;
+                ctx.fillText(text, radius - 30, 8);
+                ctx.restore();
+
+                startAngle = endAngle;
+            });
+        }
+
+        // --- Spinning Logic ---
+
+        function getCurrentItemIndex() {
+            const totalWeight = items.reduce((sum, item) => sum + item.weight, 0);
+            let pointerAngle = (3 * Math.PI / 2 - currentAngle) % (2 * Math.PI);
+            if (pointerAngle < 0) pointerAngle += 2 * Math.PI;
+
+            let accumulatedAngle = 0;
+            for (let i = 0; i < items.length; i++) {
+                const sliceAngle = (items[i].weight / totalWeight) * 2 * Math.PI;
+                if (pointerAngle >= accumulatedAngle && pointerAngle < accumulatedAngle + sliceAngle) {
+                    return i;
+                }
+                accumulatedAngle += sliceAngle;
+            }
+            return -1;
+        }
+
+        function spin() {
+            if (isSpinning) return;
+            if (items.length < 1) return;
+
+            // Audio Init
+            initAudio();
+
+            // Hide result
+            resultDisplay.classList.remove('opacity-100');
+            resultDisplay.classList.add('opacity-0');
+
+            isSpinning = true;
+            spinBtn.classList.add('scale-95', 'brightness-75');
+            
+            spinVelocity = Math.random() * 0.25 + 0.35; 
+            lastPassedIndex = getCurrentItemIndex(); // Init last index
+
+            requestAnimationFrame(animateSpin);
+        }
+
+        function animateSpin() {
+            if (spinVelocity <= 0.001) {
+                stopSpin();
+                return;
+            }
+
+            currentAngle += spinVelocity;
+            spinVelocity *= 0.985; // Friction
+
+            if (currentAngle >= 2 * Math.PI) {
+                currentAngle -= 2 * Math.PI;
+            }
+
+            // Check for Tick Sound
+            const currentIndex = getCurrentItemIndex();
+            if (currentIndex !== -1 && currentIndex !== lastPassedIndex) {
+                playTick();
+                lastPassedIndex = currentIndex;
+            }
+
+            drawWheel();
+            animationFrameId = requestAnimationFrame(animateSpin);
+        }
+
+        function stopSpin() {
+            isSpinning = false;
+            spinVelocity = 0;
+            spinBtn.classList.remove('scale-95', 'brightness-75');
+            determineWinner();
+        }
+
+        function determineWinner() {
+            const index = getCurrentItemIndex();
+            if (index !== -1) {
+                showResult(items[index]);
+            }
+        }
+
+        function showResult(winner) {
+            winnerText.textContent = winner.name;
+            winnerText.style.color = winner.color === '#334155' ? '#94a3b8' : winner.color; 
+            
+            resultDisplay.classList.remove('opacity-0');
+            resultDisplay.classList.add('opacity-100');
+            
+            // Play configured sound
+            const soundType = winner.sound || 'win';
+            playResultSound(soundType);
+
+            // Confetti for positive results (everything except "lose" type)
+            if (soundType !== 'lose') {
+                fireConfetti();
+            }
+        }
+
+        // --- Settings UI Logic ---
+
+        function renderItems() {
+            itemsContainer.innerHTML = '';
+            items.forEach((item, index) => {
+                const el = document.createElement('div');
+                el.className = "bg-slate-800 p-3 rounded-lg border border-slate-700 animate-fade-in";
+                el.innerHTML = `
+                    <div class="flex items-center justify-between mb-2 gap-2">
+                        <div class="flex items-center gap-2 flex-1 min-w-0">
+                            <input type="color" value="${item.color}" data-id="${item.id}" class="color-picker w-6 h-6 rounded cursor-pointer border-none bg-transparent flex-shrink-0">
+                            <input type="text" value="${item.name}" data-id="${item.id}" class="name-input bg-transparent text-slate-200 font-bold border-b border-slate-600 focus:border-yellow-500 focus:outline-none w-full text-sm py-1 min-w-0" placeholder="項目名">
+                        </div>
+                        <select class="sound-select bg-slate-700 text-xs text-slate-300 rounded border border-slate-600 focus:border-yellow-500 outline-none py-1" data-id="${item.id}">
+                            <option value="win" ${item.sound === 'win' ? 'selected' : ''}>🎵 豪華</option>
+                            <option value="lose" ${item.sound === 'lose' ? 'selected' : ''}>🎵 残念</option>
+                            <option value="retry" ${item.sound === 'retry' ? 'selected' : ''}>🎵 もう一度</option>
+                            <option value="snack" ${item.sound === 'snack' ? 'selected' : ''}>🎵 ポップ</option>
+                            <option value="none" ${item.sound === 'none' ? 'selected' : ''}>🔕 なし</option>
+                        </select>
+                        <button class="delete-btn text-slate-500 hover:text-red-400 p-1 flex-shrink-0" data-id="${item.id}" ${items.length <= 1 ? 'disabled' : ''}>
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs text-slate-400 font-mono w-12 text-right">Ratio: <span class="weight-val text-yellow-500 font-bold">${item.weight}</span></span>
+                        <input type="range" min="1" max="20" value="${item.weight}" data-id="${item.id}" class="weight-slider flex-1">
+                    </div>
+                `;
+                itemsContainer.appendChild(el);
+            });
+
+            // Re-attach listeners
+            document.querySelectorAll('.weight-slider').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    const id = parseInt(e.target.dataset.id);
+                    const val = parseInt(e.target.value);
+                    const item = items.find(i => i.id === id);
+                    if(item) {
+                        item.weight = val;
+                        e.target.parentElement.querySelector('.weight-val').textContent = val;
+                    }
+                });
+            });
+
+            document.querySelectorAll('.name-input').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    const id = parseInt(e.target.dataset.id);
+                    const item = items.find(i => i.id === id);
+                    if(item) item.name = e.target.value;
+                });
+            });
+            
+            document.querySelectorAll('.color-picker').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    const id = parseInt(e.target.dataset.id);
+                    const item = items.find(i => i.id === id);
+                    if(item) item.color = e.target.value;
+                });
+            });
+
+            document.querySelectorAll('.sound-select').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    const id = parseInt(e.target.dataset.id);
+                    const item = items.find(i => i.id === id);
+                    if(item) {
+                        item.sound = e.target.value;
+                        // Preview sound on selection
+                        initAudio();
+                        playResultSound(item.sound);
+                    }
+                });
+            });
+
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const id = parseInt(e.currentTarget.dataset.id);
+                    if(items.length > 1) {
+                        items = items.filter(i => i.id !== id);
+                        renderItems();
+                        drawWheel();
+                    }
+                });
+            });
+        }
+
+        // Add Item with AUTO SHUFFLE
+        addItemBtn.addEventListener('click', () => {
+            const newId = Date.now();
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            items.push({ id: newId, name: `項目${items.length + 1}`, weight: 1, color: color, sound: 'win' });
+            
+            // Auto shuffle logic
+            for (let i = items.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [items[i], items[j]] = [items[j], items[i]];
+            }
+
+            renderItems();
+            drawWheel(); 
+             setTimeout(() => {
+                itemsContainer.scrollTop = itemsContainer.scrollHeight;
+            }, 50);
+        });
+
+        // Apply Button
+        applyBtn.addEventListener('click', () => {
+            drawWheel();
+            const originalText = applyBtn.textContent;
+            applyBtn.textContent = "更新完了！";
+            applyBtn.classList.add("bg-green-500", "text-white");
+            setTimeout(() => {
+                applyBtn.textContent = originalText;
+                applyBtn.classList.remove("bg-green-500", "text-white");
+            }, 1000);
+        });
+
+        resetPresetBtn.addEventListener('click', () => {
+            if(confirm('設定をリセットしますか？（ランダムに再配置されます）')) {
+                items = generateInitialItems();
+                renderItems();
+                drawWheel();
+            }
+        });
+
+        // Spin Button
+        spinBtn.addEventListener('click', spin);
+
+        // --- Confetti (Visual Effect) ---
+        const cCanvas = document.getElementById('confettiCanvas');
+        const cCtx = cCanvas.getContext('2d');
+        
+        function resizeConfetti() {
+            cCanvas.width = window.innerWidth;
+            cCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeConfetti);
+        resizeConfetti();
+
+        let particles = [];
+        
+        function fireConfetti() {
+            particles = [];
+            // Increased from 100 to 300 particles for 3x confetti
+            for(let i=0; i<300; i++) {
+                particles.push({
+                    x: window.innerWidth / 2,
+                    y: window.innerHeight / 2,
+                    vx: (Math.random() - 0.5) * 20,
+                    vy: (Math.random() - 0.5) * 20,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    life: 1.0,
+                    size: Math.random() * 8 + 4
+                });
+            }
+            animateConfetti();
+        }
+
+        function animateConfetti() {
+            cCtx.clearRect(0,0, cCanvas.width, cCanvas.height);
+            let active = false;
+            
+            particles.forEach(p => {
+                if(p.life > 0) {
+                    active = true;
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.5; // gravity
+                    p.vx *= 0.95; // air resistance
+                    p.life -= 0.02;
+                    
+                    cCtx.fillStyle = p.color;
+                    cCtx.globalAlpha = p.life;
+                    cCtx.fillRect(p.x, p.y, p.size, p.size);
+                }
+            });
+            cCtx.globalAlpha = 1.0;
+
+            if(active) {
+                requestAnimationFrame(animateConfetti);
+            }
+        }
+
+        // Init
+        renderItems();
+        drawWheel();
+
+    </script>
+</body>
+</html>
